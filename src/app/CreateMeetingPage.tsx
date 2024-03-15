@@ -1,5 +1,6 @@
 "use client";
 
+import Button from "@/components/Button";
 import { useUser } from "@clerk/nextjs";
 import {
   Call,
@@ -7,25 +8,23 @@ import {
   useStreamVideoClient,
 } from "@stream-io/video-react-sdk";
 import { Copy, Loader2 } from "lucide-react";
-import React, { useState } from "react";
-import { getUserIds } from "./actions";
-import Button from "@/components/Button";
 import Link from "next/link";
+import { useState } from "react";
+import { getUserIds } from "./actions";
 
-type Props = {};
-
-export default function CreateMeetingPage({}: Props) {
-  const { user } = useUser();
-
-  const client = useStreamVideoClient(); // this hook is provided by the stream sdk , but will not get the value of client until we pass the client value in Client Provider
-
+export default function CreateMeetingPage() {
   const [descriptionInput, setDescriptionInput] = useState("");
   const [startTimeInput, setStartTimeInput] = useState("");
-  const [participantsInput, setParticipantInputs] = useState("");
+  const [participantsInput, setParticipantsInput] = useState("");
+
   const [call, setCall] = useState<Call>();
 
+  const client = useStreamVideoClient();
+
+  const { user } = useUser();
+
   async function createMeeting() {
-    if (!user || !client) {
+    if (!client || !user) {
       return;
     }
 
@@ -34,6 +33,8 @@ export default function CreateMeetingPage({}: Props) {
 
       const callType = participantsInput ? "private-meeting" : "default";
 
+      const call = client.call(callType, id);
+
       const memberEmails = participantsInput
         .split(",")
         .map((email) => email.trim());
@@ -41,62 +42,51 @@ export default function CreateMeetingPage({}: Props) {
       const memberIds = await getUserIds(memberEmails);
 
       const members: MemberRequest[] = memberIds
-        .map((id) => ({
-          user_id: id,
-          role: "call_member",
-        }))
-        .concat({
-          user_id: user.id,
-          role: "call_member",
-        })
+        .map((id) => ({ user_id: id, role: "call_member" }))
+        .concat({ user_id: user.id, role: "call_member" })
         .filter(
           (v, i, a) => a.findIndex((v2) => v2.user_id === v.user_id) === i,
         );
 
-      const start_at = new Date(startTimeInput || Date.now()).toISOString();
+      const starts_at = new Date(startTimeInput || Date.now()).toISOString();
 
-      const call = client.call(callType, id);
       await call.getOrCreate({
         data: {
-          custom: {
-            start_at,
-            members,
-            descriptionInput: descriptionInput,
-          },
+          starts_at,
+          members,
+          custom: { description: descriptionInput },
         },
       });
+
       setCall(call);
     } catch (error) {
-      console.log(error);
-      alert("Something went wrong : Please try again later");
+      console.error(error);
+      alert("Something went wrong. Please try again later.");
     }
   }
-  if (!user || !client) {
-    return (
-      <div className="mx-auto animate-spin">
-        <Loader2 />
-      </div>
-    );
+
+  if (!client || !user) {
+    return <Loader2 className="mx-auto animate-spin" />;
   }
 
   return (
     <div className="flex flex-col items-center space-y-6">
       <h1 className="text-center text-2xl font-bold">
-        Welcome {user.username} !!
+        Welcome {user.username}!
       </h1>
       <div className="mx-auto w-80 space-y-6 rounded-md bg-slate-100 p-5">
-        <h2 className="text-xl font-bold">Create a new meeting </h2>
-        <DescritpionInput
+        <h2 className="text-xl font-bold">Create a new meeting</h2>
+        <DescriptionInput
           value={descriptionInput}
           onChange={setDescriptionInput}
         />
         <StartTimeInput value={startTimeInput} onChange={setStartTimeInput} />
         <ParticipantsInput
           value={participantsInput}
-          onChange={setParticipantInputs}
+          onChange={setParticipantsInput}
         />
-        <Button className="w-full bg-red-400" onClick={createMeeting}>
-          Create Meeting
+        <Button onClick={createMeeting} className="w-full bg-red-400">
+          Create meeting
         </Button>
       </div>
       {call && <MeetingLink call={call} />}
@@ -104,16 +94,17 @@ export default function CreateMeetingPage({}: Props) {
   );
 }
 
-interface DescritpionInputProps {
+interface DescriptionInputProps {
   value: string;
   onChange: (value: string) => void;
 }
 
-function DescritpionInput({ value, onChange }: DescritpionInputProps) {
+function DescriptionInput({ value, onChange }: DescriptionInputProps) {
   const [active, setActive] = useState(false);
+
   return (
     <div className="space-y-2">
-      <div className=" font-medium">Meeting info : </div>
+      <div className="font-medium">Meeting info:</div>
       <label className="flex items-center gap-1.5">
         <input
           type="checkbox"
@@ -127,13 +118,13 @@ function DescritpionInput({ value, onChange }: DescritpionInputProps) {
       </label>
       {active && (
         <label className="block space-y-1">
-          <div className="font-medium">Description</div>
+          <span className="font-medium">Description</span>
           <textarea
             value={value}
             onChange={(e) => onChange(e.target.value)}
             maxLength={500}
             className="w-full rounded-md border border-gray-300 p-2"
-          ></textarea>
+          />
         </label>
       )}
     </div>
@@ -146,20 +137,22 @@ interface StartTimeInputProps {
 }
 
 function StartTimeInput({ value, onChange }: StartTimeInputProps) {
+  const [active, setActive] = useState(false);
+
   const dateTimeLocalNow = new Date(
     new Date().getTime() - new Date().getTimezoneOffset() * 60_000,
   )
     .toISOString()
     .slice(0, 16);
-  const [active, setActive] = useState(false);
+
   return (
     <div className="space-y-2">
-      <div className=" font-medium">Start time : </div>
+      <div className="font-medium">Meeting start:</div>
       <label className="flex items-center gap-1.5">
         <input
           type="radio"
           checked={!active}
-          onChange={(e) => {
+          onChange={() => {
             setActive(false);
             onChange("");
           }}
@@ -170,8 +163,8 @@ function StartTimeInput({ value, onChange }: StartTimeInputProps) {
         <input
           type="radio"
           checked={active}
-          onChange={(e) => {
-            setActive(!active);
+          onChange={() => {
+            setActive(true);
             onChange(dateTimeLocalNow);
           }}
         />
@@ -179,12 +172,12 @@ function StartTimeInput({ value, onChange }: StartTimeInputProps) {
       </label>
       {active && (
         <label className="block space-y-1">
-          <div className="font-medium">Description</div>
+          <span className="font-medium">Start time</span>
           <input
             type="datetime-local"
             value={value}
-            min={dateTimeLocalNow}
             onChange={(e) => onChange(e.target.value)}
+            min={dateTimeLocalNow}
             className="w-full rounded-md border border-gray-300 p-2"
           />
         </label>
@@ -200,14 +193,15 @@ interface ParticipantsInputProps {
 
 function ParticipantsInput({ value, onChange }: ParticipantsInputProps) {
   const [active, setActive] = useState(false);
+
   return (
     <div className="space-y-2">
-      <div className=" font-medium">Participants: </div>
+      <div className="font-medium">Participants:</div>
       <label className="flex items-center gap-1.5">
         <input
           type="radio"
           checked={!active}
-          onChange={(e) => {
+          onChange={() => {
             setActive(false);
             onChange("");
           }}
@@ -215,24 +209,18 @@ function ParticipantsInput({ value, onChange }: ParticipantsInputProps) {
         Everyone with link can join
       </label>
       <label className="flex items-center gap-1.5">
-        <input
-          type="radio"
-          checked={active}
-          onChange={(e) => {
-            setActive(true);
-          }}
-        />
-        Private Meeting
+        <input type="radio" checked={active} onChange={() => setActive(true)} />
+        Private meeting
       </label>
       {active && (
         <label className="block space-y-1">
-          <div className="font-medium">Participant Emails</div>
+          <span className="font-medium">Participant emails</span>
           <textarea
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            placeholder="Enter participant email addresses separated by comma"
+            placeholder="Enter participant email addresses separated by commas"
             className="w-full rounded-md border border-gray-300 p-2"
-          ></textarea>
+          />
         </label>
       )}
     </div>
@@ -302,5 +290,5 @@ function getMailToLink(
       : "") +
     (description ? `\n\nDescription: ${description}` : "");
 
-  return `https://mail.google.com/mail/?view=cm&fs=1&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  return `https://mail.google.com/mail/?view=cm&fs=1&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
