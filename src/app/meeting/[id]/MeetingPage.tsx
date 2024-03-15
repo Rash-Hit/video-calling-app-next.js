@@ -2,11 +2,13 @@
 
 import AudioVolumeIndicator from "@/components/AudioVolumeIndicator";
 import Button, { buttonClassName } from "@/components/Button";
+import FlexibleCallLayout from "@/components/FlexibleCallLayout";
 import PermissionPrompt from "@/components/PermissionPrompt";
 import useLoadCall from "@/hooks/useLoadCall";
 import useStreamCall from "@/hooks/useStreamCall";
 import { useUser } from "@clerk/nextjs";
 import {
+  CallingState,
   DeviceSettings,
   SpeakerLayout,
   StreamCall,
@@ -92,7 +94,7 @@ function MeetingScreen() {
         </p>
       )}
       {setupComplete ? (
-        <SpeakerLayout />
+        <CallUI />
       ) : (
         <SetupUI onSetupComplete={handleSetupComplete} />
       )}
@@ -147,6 +149,18 @@ function SetupUI({ onSetupComplete }: SetupUiProps) {
       <Button onClick={onSetupComplete}>Join Meeting</Button>
     </div>
   );
+}
+
+function CallUI() {
+  const { useCallCallingState } = useCallStateHooks();
+
+  const callingState = useCallCallingState();
+
+  if (callingState !== CallingState.JOINED) {
+    return <Loader2 className="mx-auto animate-spin" />;
+  }
+
+  return <FlexibleCallLayout  />;
 }
 
 function UpcomingMeetingScreen() {
