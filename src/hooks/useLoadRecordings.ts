@@ -5,8 +5,8 @@ import { useEffect, useState } from "react";
 export default function useLoadRecordings(call: Call) {
   const { user } = useUser();
 
-  const [recording, setRecordings] = useState<CallRecording[]>();
-  const [recordingsLoading, setRecordingsLoading] = useState(true);
+  const [recordings, setRecordings] = useState<CallRecording[]>([]);
+  const [recordingsLoading, setRecordingsLoading] = useState(false);
 
   useEffect(() => {
     async function loadRecordings() {
@@ -21,7 +21,7 @@ export default function useLoadRecordings(call: Call) {
     }
 
     loadRecordings();
-  }, [user?.id, call]);
+  }, [call, user?.id]);
 
-  return { recording, recordingsLoading };
+  return { recordings, recordingsLoading };
 }
